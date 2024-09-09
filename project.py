@@ -20,10 +20,10 @@ class PriceMachine:
                 df = pd.read_csv(os.path.join(file_path, file), sep=',', header=None, encoding='utf-8')
                 df = df.dropna(how="all", axis=1)
                 df = df.reset_index(drop=True)
-                col_name, col_price, col_weight = self._search_product_price_weight(df)
+                col_product, col_price, col_weight = self._search_product_price_weight(df)
                 new_df = pd.DataFrame(columns=['№', 'Наименование', 'Цена', 'Вес', 'Цена за кг.', 'Файл'])
                 new_df['№'] = range(1, len(new_df) + 1)
-                new_df['Наименование'] = col_name
+                new_df['Наименование'] = col_product
                 new_df['Цена'] = col_price
                 new_df['Вес'] = col_weight
                 new_df['Файл'] = file.split('.')[0]
@@ -42,22 +42,19 @@ class PriceMachine:
         return df2
 
     def _search_product_price_weight(self, headers):
-        col_name = None
-        col_price = None
-        col_weight = None
-        # print(headers)
+        # col_product = None
+        # col_price = None
+        # col_weight = None
 
         for i, header in enumerate(headers):
-            # print(headers[header][0])
-            # print(headers[header])
             if re.match(r'^название|^товар|^наименование|^продукт$', headers[header][0], re.IGNORECASE):
-                col_name = headers[header]
+                col_product = headers[header]
             elif re.match(r'^цена|^розница$', headers[header][0], re.IGNORECASE):
                 col_price = headers[header]
             elif re.match(r'^вес|^масса|^фасовка$', headers[header][0], re.IGNORECASE):
                 col_weight = headers[header]
 
-        return col_name, col_price, col_weight
+        return col_product, col_price, col_weight
 
     def export_to_html(self, fname='output.html'):
         result = '''
@@ -92,14 +89,14 @@ class PriceMachine:
         with open(fname, 'w') as f:
             f.write(result)
 
-    def find_text(self, text):
+    def find_text(self, search_text):
         for file in self.prices:
             df = self.prices[file]
-            matches = df[df['Наименование'].str.contains(text, case=False)]
+            matches = df[df['Наименование'].str.contains(search_text, case=False)]
             if len(matches) > 0:
                 return matches
             else:
-                print(f'Продукта с наименованием: {text}, не найдено. '
+                print(f'Продукта с наименованием: {search_text}, не найдено. '
                       f'Для примера выводим данные по запросу: "Пелядь крупная х/к потр"')
                 return pm.find_text("Пелядь крупная х/к потр")
 
@@ -115,11 +112,11 @@ if __name__ == "__main__":
     print('Для вывода данных по продукту - ')
 
     while True:
-        text = input('\nВведите наименование продукта: ')
-        if text.lower().strip() == "exit":
+        search_text = input('\nВведите наименование продукта: ')
+        if search_text.lower().strip() == "exit":
             break
-        elif text == "all":
+        elif search_text == "all":
             print(pm.prices['result'])
         else:
-            print(pm.find_text(text))
+            print(pm.find_text(search_text))
     print('Работа завершена.')
