@@ -15,57 +15,78 @@ class PriceMachine:
         for file in os.listdir(file_path):
             if file.endswith('.csv') and 'price' in file:
                 print(f'чтение данных из файла {file}')
-                df = pd.read_csv(os.path.join(file_path, file), sep=',', header=None, encoding='utf-8')
-                df = df.dropna(how="all", axis=1)
-                df = df.reset_index(drop=True)
-                col_product, col_price, col_weight = self._search_product_price_weight(df)
-                new_df = pd.DataFrame(columns=['№', 'Наименование', 'Цена', 'Вес', 'Цена за кг.', 'Файл'])
-                new_df['№'] = range(1, len(new_df) + 1)
-                new_df['Наименование'] = col_product
-                new_df['Цена'] = col_price
-                new_df['Вес'] = col_weight
+                df_from_file = pd.read_csv(os.path.join(file_path, file), encoding='utf-8')
+                new_df = self._search_product_price_weight(df_from_file)
                 new_df['Файл'] = file.split('.')[0]
-                new_df = new_df.drop(index=0)
-                new_df = new_df.reset_index(drop=True)
-                new_df['Цена'] = new_df['Цена'].astype(float)
-                new_df['Вес'] = new_df['Вес'].astype(float)
-                new_df['Цена за кг.'] = round(new_df['Цена'] / new_df['Вес'], 2)
-                new_df.dropna(axis=1, how='all', inplace=True)
-                self.prices.dropna(axis=1, how='all', inplace=True)
                 self.prices = pd.concat([self.prices, new_df])
+                print(new_df)
+        # Добавить столбец 'Цена за кг.' = round(new_df['Цена'] / new_df['Вес'], 2)
+        self.prices['Цена за кг.'] = round(self.prices['Цена'] / self.prices['Вес'], 2)
+
         self.prices.sort_values(by='Цена за кг.', ascending=True, inplace=True)
         self.prices = self.prices.reset_index(drop=True)
         self.prices['№'] = range(1, len(self.prices) + 1)
+        # self.prices.insert(1, '№', range(1, len(self.prices) + 1))
         return self.prices
 
     def _search_product_price_weight(self, headers):
+
+        print(headers)
+        headers = headers.dropna(how="all", axis=1)
         for i, header in enumerate(headers):
-            if re.match(r'^название|^товар|^наименование|^продукт$', headers[header][0], re.IGNORECASE):
-                col_product = headers[header]
-            elif re.match(r'^цена|^розница$', headers[header][0], re.IGNORECASE):
-                col_price = headers[header]
-            elif re.match(r'^вес|^масса|^фасовка$', headers[header][0], re.IGNORECASE):
-                col_weight = headers[header]
-        return col_product, col_price, col_weight
+            print(i, header, '\n', headers[header])
+            if header.lower() in ['название', 'продукт', 'товар', 'наименование']:
+                headers = headers.rename(columns={header: 'Наименование'})
+            elif header.lower() in ['цена', 'розница']:
+                headers = headers.rename(columns={header: 'Цена'})
+            elif header.lower() in ['вес', 'масса', 'фасовка']:
+                headers = headers.rename(columns={header: 'Вес'})
+            else:
+                headers = headers.drop(columns=[header])
+        print(headers)
+        return headers
+
+    # def _search_product_price_weight(self, headers):
+    #
+    #     print(headers)
+    #     headers = headers.dropna(how="all", axis=1)
+    #     for i, header in enumerate(headers):
+    #         print(i, header, '\n', headers[header])
+    #         # if re.match(r'^название|^товар|^наименование|^продукт$', header, re.IGNORECASE):
+    #         if header.lower() in ['название', 'продукт', 'товар', 'наименование']:
+    #             headers = headers.rename(columns={header: 'Наименование'})
+    #             col_product = headers['Наименование']
+    #         # elif re.match(r'^цена|^розница$', header, re.IGNORECASE):
+    #         elif header.lower() in ['цена', 'розница']:
+    #             headers = headers.rename(columns={header: 'Цена'})
+    #             col_price = headers['Цена']
+    #         # elif re.match(r'^вес|^масса|^фасовка$', header, re.IGNORECASE):
+    #         elif header.lower() in ['вес', 'масса', 'фасовка']:
+    #             headers = headers.rename(columns={header: 'Вес'})
+    #             col_weight = headers['Вес']
+    #         else:
+    #             headers = headers.drop(columns=[header])
+    #     print(headers)
+    #     return col_product, col_price, col_weight, headers
 
     def export_to_html(self, fname='output.html'):
         result = '''
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>Позиции продуктов</title>
-        </head>
-        <body>
-            <table>
-                <tr>
-                    <th>Номер</th>
-                    <th>Название</th>
-                    <th>Цена</th>
-                    <th>Фасовка</th>
-                    <th>Файл</th>
-                    <th>Цена за кг.</th>
-                </tr>
-        '''
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Позиции продуктов</title>
+            </head>
+            <body>
+                <table>
+                    <tr>
+                        <th>Номер</th>
+                        <th>Название</th>
+                        <th>Цена</th>
+                        <th>Фасовка</th>
+                        <th>Файл</th>
+                        <th>Цена за кг.</th>
+                    </tr>
+            '''
         for i in range(len(self.prices)):
             result += '<tr>'
             result += f'<td>{self.prices["№"].values[i]}</td>'
