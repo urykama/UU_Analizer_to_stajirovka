@@ -16,7 +16,7 @@ class PriceMachine:
         for file in os.listdir(file_path):
             if file.endswith('.csv') and 'price' in file:
                 print(f'чтение данных из файла {file}')
-                # загружаем сразу в PANDAS
+                # загружаем сразу в PANDAS дата-фрейм
                 df_from_file = pd.read_csv(os.path.join(file_path, file), encoding='utf-8')
                 # отправляем на корректировку -> получаем исправленный фрейм данных
                 new_df = self._search_product_price_weight(df_from_file)
@@ -25,7 +25,8 @@ class PriceMachine:
                 # объединяем в общий дата-фрейм, который инициирован в __init__
                 self.prices = pd.concat([self.prices, new_df])
         # Добавить столбец 'Цена за кг.' = round(new_df['Цена'] / new_df['Вес'], 2)
-        self.prices['Цена за кг.'] = round(self.prices['Цена'] / self.prices['Вес'], 2)
+        # self.prices['Цена за кг.'] = round(self.prices['Цена'] / self.prices['Вес'], 2)
+        self.prices['Цена за кг.'] = self.prices['Цена'] / self.prices['Вес']
         # Сортируем по столбцу 'Цена за кг.'
         self.prices.sort_values(by='Цена за кг.', ascending=True, inplace=True)
         # сбрасываем индексацию
@@ -58,18 +59,23 @@ class PriceMachine:
                 date_frame = date_frame.drop(columns=[header])
         return date_frame
 
-    def export_to_html(self, fname='output.html'):
+    def export_to_html(self, df, file_name='output.html'):
         """
         Заполняем таблицу в HTML документе
         и сохраняем в файл
-        :param fname:
+        :param df:
+        :param file_name
         :return:
         """
-        result = '''
-            <!DOCTYPE html>
+        result = '''<!DOCTYPE html>
             <html>
             <head>
                 <title>Позиции продуктов</title>
+                    <style>
+                        table {
+                            border-spacing: 16px 0px; /* Расстояние между ячейками */ 
+                        }
+                    </style>
             </head>
             <body>
                 <table>
@@ -82,17 +88,18 @@ class PriceMachine:
                         <th>Цена за кг.</th>
                     </tr>
             '''
-        for i in range(len(self.prices)):
+        for i in range(len(df)):
             result += '<tr>'
-            result += f'<td>{self.prices["№"].values[i]}</td>'
-            result += f'<td>{self.prices["Наименование"].values[i]}</td>'
-            result += f'<td>{self.prices["Цена"].values[i]}</td>'
-            result += f'<td>{self.prices["Вес"].values[i]}</td>'
-            result += f'<td>{self.prices["Файл"].values[i]}</td>'
-            result += f'<td>{self.prices["Цена за кг."].values[i]}</td>'
-            result += '</tr>'
-        result += '</table>'
-        with open(fname, 'w') as f:
+            result += f'<td align="right"> {df["№"].values[i]}</td>'
+            result += f'<td> {df["Наименование"].values[i]}</td>'
+            result += f'<td align="right"> {df["Цена"].values[i]}</td>'
+            result += f'<td align="right"> {df["Вес"].values[i]}</td>'
+            result += f'<td> {df["Файл"].values[i]}</td>'
+            result += f'<td align="right"> {round(df["Цена за кг."].values[i],1)}</td>'
+            result += '</tr>\n'
+        result += '\t</table>\n'
+        result += '</body>'
+        with open(file_name, 'w') as f:
             f.write(result)
 
     def find_text(self, search_text):
@@ -105,6 +112,7 @@ class PriceMachine:
         """
         matches = self.prices[self.prices['Наименование'].str.contains(search_text, case=False)]
         if len(matches):
+            self.export_to_html(df=matches, file_name='output.html')
             return matches
         else:
             print(f'Продукта с наименованием: {search_text}, не найдено. '
@@ -117,7 +125,7 @@ if __name__ == "__main__":
     # Программа должна загрузить данные из всех прайс-листов
     pm.load_prices()
     print('Все файлы прочитаны')
-    pm.export_to_html('output.html')
+    pm.export_to_html(file_name='output.html', df=pm.find_text(''))
     print('Данные выгружены в html файл: output.html\n'
           '\nКоманда - "all" - позволит получить полный список позиций в виде таблицы'
           '\nКоманда - "exit" - завершить работу программы'
